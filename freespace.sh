@@ -1,15 +1,74 @@
 #!/bin/bash
 set -e
 
-reqSpace=850000000 #850GB
-#reqSpace=500000000 #500GB
-SPACE=`find "$HOME/files" -user oz1r69tk -print0 | du --files0-from=- -ck | awk '/total$/ {print $1}'`
-if [[ $SPACE -ge reqSpace ]]
-then
-  #echo "not enough space"
-  #echo "free $SPACE"
+# Configurable required space in KB (850GB)
+reqSpace=850000000
+
+# Default torrent size to 0 if not provided
+torrentSize=0
+LOG_FILE="$HOME/sizecheck.log"
+
+# Function to print help
+print_help() {
+  echo "Usage: $0 --size <torrent_size_in_KB>"
   exit 1
+}
+
+# Function to log messages with timestamps
+log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --size)
+            if [[ "$2" =~ ^[0-9]+$ ]]; then
+                torrentSize="$2"
+                shift
+            else
+                echo "Error: --size requires a valid numeric value in KB."
+                exit 1
+            fi
+            ;;
+        --help|-h)
+            print_help
+            ;;
+        *)
+            echo "Unknown parameter passed: $1"
+            print_help
+            ;;
+    esac
+    shift
+done
+
+# Validate that size was provided
+if [[ "$torrentSize" -eq 0 ]]; then
+    echo "Error: Torrent size must be provided with --size (in KB)"
+    print_help
 fi
-#echo "got space"
-#echo "free $SPACE"
+
+# Calculate used space in Downloads using du (in KB)
+SPACE=$(find "$HOME/Downloads" -user oz1r69tk -print0 | du --files0-from=- -sk | awk '{sum += $1} END {print sum}')
+
+# Calculate the total required space
+totalRequiredSpace=$((SPACE + torrentSize))
+
+# Log details
+log "----------------------------------"
+log "Torrent Size: $((torrentSize / 1024)) MB ($torrentSize KB)"
+log "Current Used Space: $((SPACE / 1024)) MB ($SPACE KB)"
+totalUsedPercent=$(echo "scale=2; $SPACE / $reqSpace * 100" | bc)
+log "Total Used: $totalUsedPercent%"
+totalUsedPercentNew=$(echo "scale=2; $totalRequiredSpace / $reqSpace * 100" | bc)
+log "Total Used if Added: $totalUsedPercentNew%"
+
+# Check if the total required space exceeds allowed space
+if [[ $totalRequiredSpace -ge $reqSpace ]]; then
+    log "Error: Adding the torrent would exceed allowed free space."
+    exit 1
+fi
+
+log "Sufficient space available. Proceeding to add torrent."
+echo "Adding Torrent"
 exit 0
