@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Configurable required space in KB (850GB)
-reqSpace=850000000
+# Configurable required space in KiB (850GB * 1024 * 1024)
+reqSpace=$((850 * 1024 * 1024))
 
 # Default torrent size to 0 if not provided
 torrentSize=0
@@ -48,16 +48,22 @@ if [[ "$torrentSize" -eq 0 ]]; then
     print_help
 fi
 
-# Calculate used space in Downloads using du (in KB)
+# Calculate used space in Downloads using du (in KiB)
 SPACE=$(find "$HOME/Downloads" -user oz1r69tk -print0 | du --files0-from=- -sk | awk '{sum += $1} END {print sum}')
 
 # Calculate the total required space
 totalRequiredSpace=$((SPACE + torrentSize))
 
+# Convert sizes for display
+SPACE_GB=$(echo "scale=2; $SPACE / (1024 * 1024)" | bc)
+torrentSize_GB=$(echo "scale=2; $torrentSize / (1024 * 1024)" | bc)
+totalRequiredSpace_GB=$(echo "scale=2; $totalRequiredSpace / (1024 * 1024)" | bc)
+reqSpace_GB=$(echo "scale=2; $reqSpace / (1024 * 1024)" | bc)
+
 # Log details
 log "----------------------------------"
-log "Torrent Size: $((torrentSize / 1024)) MB ($torrentSize KB)"
-log "Current Used Space: $((SPACE / 1024)) MB ($SPACE KB)"
+log "Torrent Size: ${torrentSize_GB} GB ($torrentSize KiB)"
+log "Current Used Space: ${SPACE_GB} GB ($SPACE KiB)"
 totalUsedPercent=$(echo "scale=2; $SPACE / $reqSpace * 100" | bc)
 log "Total Used: $totalUsedPercent%"
 totalUsedPercentNew=$(echo "scale=2; $totalRequiredSpace / $reqSpace * 100" | bc)
